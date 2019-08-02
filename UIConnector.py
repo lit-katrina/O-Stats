@@ -1,9 +1,10 @@
+# -*- coding: utf-8 -*-
 import wx
 import matplotlib
-from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-from pip._vendor import colorama
 import pathlib
+from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
+
+
 
 import DBManager
 import Plotter
@@ -12,48 +13,56 @@ import io
 
 class UIConnector(wx.Frame):
 	mAppName = 'O-Stats'
+	mDBManager = None
+	mPlotter = None
+
 	mEventChosen =''
+	fig = None
 
 	def __init__(self, parent):
-		wx.Frame.__init__(self, parent, title=self.mAppName, size=(700, 700))
-		#text = wx.StaticText(self, label='Hello')
+		wx.Frame.__init__(self, parent, title=self.mAppName, size=(820, 720))
+		self.mDBManager = DBManager.DBManager()
+		self.mPlotter = Plotter.Plotter(self.mDBManager)
 
 		# Splitter window
 		self.sp = wx.SplitterWindow(self)
 		self.topPanel = wx.Panel(self.sp, style=wx.RAISED_BORDER)
 		self.mainPanel = wx.Panel(self.sp)
-		self.sp.SplitHorizontally(self.topPanel, self.mainPanel, 100)
-
+		self.sp.SplitHorizontally(self.topPanel, self.mainPanel, 50)
 		self.mainPanel.SetBackgroundColour(wx.WHITE)
 
 		# Set the status bar
 		self.statusbar = self.CreateStatusBar()
-		self.statusbar.SetStatusText("hola")
+		self.statusbar.SetStatusText("")
 
-		# Crete buttons
-		self.myButton = wx.Button(self.topPanel, -1, 'Plot', size=(40, 20), pos=(100, 2))
-		self.myButton.Bind(wx.EVT_BUTTON, self.graphPlot)
+		#create label
+		text = wx.StaticText(self.topPanel, label='Events: ', pos=(0, 2))
+		font = self.GetFont()
+		font.SetPointSize(12)
+		text.SetFont(font)
 
 		# Create combo
-		filesList = self.getFilesList('./DataRaw/2009-2010')
-		self.combo = wx.ComboBox(self.topPanel, style=wx.CB_READONLY, choices=filesList)
+		filesList = self.getFilesList(self.mDBManager.mRawDataPath)
+		self.combo = wx.ComboBox(self.topPanel, style=wx.CB_READONLY, choices=filesList, pos=(60, 2))
 		self.combo.Bind(wx.EVT_COMBOBOX, self.OnCombo)
 
+		# Crete buttons
+		self.myButton = wx.Button(self.topPanel, -1, 'Plot', size=(45, 24), pos=(150, 2))
+		self.myButton.Bind(wx.EVT_BUTTON, self.graphPlot)
 
-		#self.Refresh()
 	def OnCombo(self, event):
-		#self.label.SetLabel("selected " + self.combo.GetValue() + " from Combobox")
 		self.mEventChosen = self.combo.GetValue()
 
 	def graphPlot(self, event):
-		dbManager = DBManager.DBManager()
-		plotter = Plotter.Plotter(dbManager)
+		# If we already have a figure in display, remove it
+		if self.fig:
+			self.fig.canvas.Destroy()
 
+		# if an event was chosen, show its' plot
 		if self.mEventChosen:
-			fig = plotter.plotLeagueCompetitionClubStats('DataTables/' + self.mEventChosen + '.csv')
-			canvas = FigureCanvas(self.mainPanel, -1, fig)
-
-			self.statusbar.SetStatusText("yes")
+			csvFile = self.mDBManager.mDataPath + '/' + self.mEventChosen + '.csv'
+			self.fig = self.mPlotter.plotLeagueCompetitionClubStats(csvFile)
+			FigureCanvas(self.mainPanel, -1, self.fig)
 
 	def getFilesList(self, path):
 		filesList = []
